@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+    <body>
+        <h3>Render</h3>
+        <canvas id="gl"></canvas>
+        <h3>Blender Reference (Filmic)</h3>
+        <img src="render.png">
+        <h3>Blender Reference (Standard)</h3>
+        <img src="render-linear.png">
+
+        <script type="module">
+         import * as THREE from "https://threejs.org/build/three.module.js";
+         import { OrbitControls } from "https://threejs.org/examples/jsm/controls/OrbitControls.js";
+         import { GLTFLoader } from "https://threejs.org/examples/jsm/loaders/GLTFLoader.js";
+         import { RGBELoader } from "https://threejs.org/examples/jsm/loaders/RGBELoader.js";
+         import { GUI } from "https://threejs.org/examples/jsm/libs/dat.gui.module.js";
+
+         const params = {
+             exposure: 1,
+             physicallyCorrectLights: true,
+             toneMapping: "ACESFilmic"
+         };
+
+         var toneMappingOptions = {
+             None: THREE.NoToneMapping,
+             Linear: THREE.LinearToneMapping,
+             Reinhard: THREE.ReinhardToneMapping,
+             Uncharted2: THREE.Uncharted2ToneMapping,
+             Cineon: THREE.CineonToneMapping,
+             ACESFilmic: THREE.ACESFilmicToneMapping
+         };
+
+         const WIDTH = 1280;
+         const HEIGHT = 720;
+
+         const renderer = new THREE.WebGLRenderer({canvas: document.getElementById("gl")});
+         renderer.setSize( WIDTH, HEIGHT );
+         renderer.setPixelRatio( window.devicePixelRatio );
+
+         renderer.outputEncoding = THREE.sRGBEncoding;
+
+         const scene = new THREE.Scene();
+         scene.background = new THREE.Color("#404040")
+
+         const camera = new THREE.PerspectiveCamera( 40, WIDTH/HEIGHT, 1, 10000 );
+         camera.setFocalLength(50);
+         camera.position.set( 8, 5, 8 );
+         camera.lookAt(0,1,0);
+
+         var gltfLoader = new GLTFLoader();
+         gltfLoader.load( 'scene.glb', function ( gltf ) {
+             const plane = gltf.scene.getObjectByName("Plane")
+             const cube = gltf.scene.getObjectByName("Cube")
+             scene.add( plane );
+             scene.add( cube );
+
+             const loader = new RGBELoader().setDataType( THREE.UnsignedByteType );
+             loader.load( 'lightmap.hdr', function ( texture, textureData ) {
+                 texture.flipY = false;
+                 plane.material.lightMap = texture;
+                 plane.material.needsUpdate = true;
+             });
+             loader.load( 'cube-lightmap.hdr', function ( texture, textureData ) {
+                 texture.flipY = false;
+                 cube.material.lightMap = texture;
+                 cube.material.needsUpdate = true;
+             });
+         });
+
+         renderer.setAnimationLoop(function () {
+             renderer.render( scene, camera );
+         })
+
+         function updateParams() {
+             renderer.toneMappingExposure = params.exposure;
+             renderer.physicallyCorrectLights = params.physicallyCorrectLights;
+             renderer.toneMapping = toneMappingOptions[params.toneMapping];
+
+             scene.traverse(o => {
+                 if(o.material) o.material.needsUpdate = true
+             })
+         }
+
+         const gui = new GUI();
+         gui.add( params, 'toneMapping', Object.keys( toneMappingOptions ) ).onChange(updateParams);
+         gui.add( params, 'exposure', 0, 4, 0.01 ).onChange( updateParams );
+         gui.add( params, 'physicallyCorrectLights', true).onChange( updateParams );
+         gui.open();
+
+         updateParams();
+
+        </script>
+    </body>
+</html>
